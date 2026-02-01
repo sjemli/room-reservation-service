@@ -1,0 +1,66 @@
+server:
+  port: 8080
+app:
+  kafka:
+    enabled: false
+
+spring:
+  application:
+    name: room-reservation-service
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: reservation-group
+      enable-auto-commit: false
+    topic:
+      payment-update: bank-transfer-payment-update
+    concurrency: 3
+    dlt-topic: bank-transfer-payment-update-dlt
+
+
+credit-card-service:
+  url: http://localhost:9090/credit-card-payment-api
+
+
+cancel:
+  cron: 0 0 0 * * ?
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      creditCard:
+        registerHealthIndicator: true
+        failureRateThreshold: 50
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+  retry:
+    instances:
+      creditCard:
+        maxAttempts: 3
+        waitDuration: 2s
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        enableRandomizedWait: true        #  jitter
+        randomizedWaitFactor: 0.5
+        retryExceptions:
+          - org.springframework.web.client.ResourceAccessException # Timeout/Service Down
+          - org.springframework.web.client.HttpServerErrorException # Errors 5xx
+        ignoreExceptions:
+          - org.springframework.web.client.HttpClientErrorException
